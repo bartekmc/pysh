@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import os
+import re
 import sys
 import commands
 import tweepy
@@ -14,8 +15,10 @@ import logging
 def get_bool(string):
 	if string.lower() == 'yes' or string.lower() == 'true':
 		return True
-	else:
+	elif string.lower() == 'no' or string.lower() == 'false':
 		return False
+	else:
+		raise Exception("wrong value \'%s\'".format(string))	
 
 class ShazamInfo:
 	def __init__(self):
@@ -30,6 +33,10 @@ class MediaInfo:
 class ShazamTag:
 	def __init__(self):
 		self.object = None
+		self.author = "Unknown Author"
+		self.title = "Unknown Title"
+		self.album = "Unknwon Album"
+		self.genre = "N/A"
 		self.shazam = ShazamInfo()
 		self.media = MediaInfo()
 
@@ -137,12 +144,23 @@ class TwitterClient:
 class ShazamParser:
 	def __init__(self, config):
 		self._br = mechanize.Browser()
+		self._re = re.compile('^(?P<author>[^:]+) : (?P<title>.*)')
 
 	def parse_title(self, tag):
 		url = tag.shazam.url
 		self._br.open(tag.shazam.url)
-		title = self._br.title().replace(':', '-')
+		title = self._br.title()
+		try:
+			m = self._re.match(title)
+			a = m.group('author')
+			t = m.group('title')
+			tag.author = a 
+			tag.title = t
+		except:
+			logging.debug('[Shazam ] %s', sys.exc_info()[1])
 		tag.shazam.title = title
+		return tag
+
 
 	def parse_titles(self, tags):
 		newtags = list()
@@ -179,9 +197,28 @@ class Pysh:
 		if self._dir == "":
 			self._dir = os.getcwd()
 		else:
+			self._dir = self._dir.replace('\\', '/')
+			if self._dir[-1] == '/':
+				self._dir = self._dir[:-1]
 			if not os.path.exists(self._dir) or not os.path.isdir(self._dir):
 				raise Exception("directory \'{0}\' does not exists".format(self._dir)) 
 		logging.debug('[Pysh   ][init] Dir: \'%s\'', self._dir)
+		self._name = config.get('Output', 'name')
+		self._audio = get_bool(config.get('Output', 'audio'))
+		self._audio_format = config.get('Output', 'audio_format')
+		self._video = get_bool(config.get('Output', 'video'))
+
+	def get_path(self, tag):
+		path = self._name
+		path = path.replace("\"", "")
+		path = path.replace("%a", tag.author)
+		path = path.replace("%t", tag.title)
+		path = path.replace("%A", tag.album)
+		#TODO: rest of wildcards
+		if path[0] == '/':
+			path = path[1:]
+		path = self._dir + '/' + path
+		return path
 
 	
 def main():
@@ -201,7 +238,7 @@ def main():
 	tags = shparser.parse_titles(tags)
 	tags = youtube.find_media(tags)
 	for tag in tags:
-		dl.download(tag.media.url, tag.media.title)	
+		dl.download(tag.media.url, pysh.get_path(tag))	
 		twitter.remove_tag(tag)
 
 
