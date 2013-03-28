@@ -1,0 +1,13 @@
+                                        .__     
+		    ______ ___.__. _____|  |__  
+		    \____ <   |  |/  ___/  |  \ 
+		    |  |_> >___  |\___ \|   Y  \
+		    |   __// ____/____  >___|  /
+		    |__|   \/         \/     \/ 
+
+pysh - Python script for downloading media (videoclips, music etc) tagged by Shazam
+
+Dependencies:
+[1] gdata-python-client (https://code.google.com/p/gdata-python-client)
+[2] tweepy (https://github.com/tweepy/tweepy)
+[3] youtube-dl (http://rg3.github.com/youtube-dl/)
