@@ -173,20 +173,41 @@ class YouTubeDl:
 		status, output = commands.getstatusoutput("{0} --get-format \"{1}\"".format(self._app, url))
 		return output
 
-logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+class Pysh:
+	def __init__(self, config):
+		self._dir = config.get('Output', 'dir')
+		if self._dir == "":
+			self._dir = os.getcwd()
+		else:
+			if not os.path.exists(self._dir) or not os.path.isdir(self._dir):
+				raise Exception("directory \'{0}\' does not exists".format(self._dir)) 
+		logging.debug('[Pysh   ][init] Dir: \'%s\'', self._dir)
 
-config = ConfigParser.RawConfigParser()
-config.read('pysh.config')
+	
+def main():
+	logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 
-twitter = TwitterClient(config)
-shparser = ShazamParser(config)
-youtube = YouTubeClient()
-dl = YouTubeDl()
+	config = ConfigParser.RawConfigParser()
+	config.read('pysh.config')
+	
+	pysh = Pysh(config)
 
-tags = twitter.get_latest_tags()
-tags = shparser.parse_titles(tags)
-tags = youtube.find_media(tags)
-for tag in tags:
-dl.download(tag.media.url, tag.media.title)	
-	twitter.remove_tag(tag)
+	twitter = TwitterClient(config)
+	shparser = ShazamParser(config)
+	youtube = YouTubeClient()
+	dl = YouTubeDl()
+
+	tags = twitter.get_latest_tags()
+	tags = shparser.parse_titles(tags)
+	tags = youtube.find_media(tags)
+	for tag in tags:
+		dl.download(tag.media.url, tag.media.title)	
+		twitter.remove_tag(tag)
+
+
+if __name__ == '__main__':
+	try:
+		main()
+	except:
+		print "error: ", sys.exc_info()[1]
 
