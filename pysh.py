@@ -11,6 +11,12 @@ import mechanize
 import ConfigParser
 import logging
 
+def get_bool(string):
+	if string.lower() == 'yes' or string.lower() == 'true':
+		return True
+	else:
+		return False
+
 class ShazamInfo:
 	def __init__(self):
 		self.url = ""
@@ -64,14 +70,16 @@ class YouTubeClient:
 
 class TwitterClient:
 	def __init__(self, config):
+		self._remove_tweet = get_bool(config.get('Twitter', 'remove_tweet'))
 		self._consumer_key = config.get('Twitter', 'consumer_key')
 		self._consumer_secret = config.get('Twitter', 'consumer_secret')
 		self._access_token = config.get('Twitter', 'access_token')
 		self._access_token_secret = config.get('Twitter', 'access_token_secret')
-		logging.debug('[Twitter] consumer_key: %s', self._consumer_key)
-		logging.debug('[Twitter] consumer_secret: %s', self._consumer_secret)
-		logging.debug('[Twitter] access_token: %s', self._access_token)
-		logging.debug('[Twitter] access_token_secret: %s', self._access_token_secret)
+		logging.debug('[Twitter][init] remove_tweet: %s', self._remove_tweet)
+		logging.debug('[Twitter][init] consumer_key: %s', self._consumer_key)
+		logging.debug('[Twitter][init] consumer_secret: %s', self._consumer_secret)
+		logging.debug('[Twitter][init] access_token: %s', self._access_token)
+		logging.debug('[Twitter][init] access_token_secret: %s', self._access_token_secret)
 		self._connect()
 
 	def get_latest_tags(self):
@@ -86,8 +94,7 @@ class TwitterClient:
 
 	def remove_tag(self, tag):
 		try:
-			self._remove_tweet(tag.object)
-			return True
+			return self._remove_tweet(tag.object)
 		except:
 			return False
 
@@ -117,24 +124,31 @@ class TwitterClient:
 		return None
 		
 	def _remove_tweet(self, tweet):
-		try:
-			self._api.destroy_status(tweet.id)
+		if self._remove_tweet:
+			try:
+				self._api.destroy_status(tweet.id)
+				return True
+			except:
+				return False
+		else:
 			return True
-		except:
-			return False
 
 
 class ShazamParser:
-	def __init__(self):
+	def __init__(self, config):
 		self._br = mechanize.Browser()
+
+	def parse_title(self, tag):
+		url = tag.shazam.url
+		self._br.open(tag.shazam.url)
+		title = self._br.title().replace(':', '-')
+		tag.shazam.title = title
 
 	def parse_titles(self, tags):
 		newtags = list()
 		for tag in tags:
 			try:
-				self._br.open(tag.shazam.url)
-				title = self._br.title().replace(':', '-')
-				tag.shazam.title = title
+				self.parse_title(tag)
 				newtags.append(tag)
 				print '[Shazam ] URL  : %s' % tag.shazam.url
 				print '[Shazam ] Title: %s' % tag.shazam.title
@@ -165,7 +179,7 @@ config = ConfigParser.RawConfigParser()
 config.read('pysh.config')
 
 twitter = TwitterClient(config)
-shparser = ShazamParser()
+shparser = ShazamParser(config)
 youtube = YouTubeClient()
 dl = YouTubeDl()
 
@@ -173,6 +187,6 @@ tags = twitter.get_latest_tags()
 tags = shparser.parse_titles(tags)
 tags = youtube.find_media(tags)
 for tag in tags:
-	dl.download(tag.media.url, tag.media.title)	
-#	twitter.remove_tag(tag)
+dl.download(tag.media.url, tag.media.title)	
+	twitter.remove_tag(tag)
 
