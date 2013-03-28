@@ -39,6 +39,7 @@ class ShazamTag:
 		self.genre = "N/A"
 		self.shazam = ShazamInfo()
 		self.media = MediaInfo()
+		self.filename = ""
 
 class YouTubeClient:
 	def __init__(self):
@@ -101,7 +102,8 @@ class TwitterClient:
 
 	def remove_tag(self, tag):
 		try:
-			return self._remove_tweet(tag.object)
+			self._api.destroy_status(tag.object.id)
+			return True
 		except:
 			return False
 
@@ -129,17 +131,6 @@ class TwitterClient:
 						print '[Twitter] URL  : %s' % urlstr
 						return urlstr
 		return None
-		
-	def _remove_tweet(self, tweet):
-		if self._remove_tweet:
-			try:
-				self._api.destroy_status(tweet.id)
-				return True
-			except:
-				return False
-		else:
-			return True
-
 
 class ShazamParser:
 	def __init__(self, config):
@@ -161,7 +152,6 @@ class ShazamParser:
 		tag.shazam.title = title
 		return tag
 
-
 	def parse_titles(self, tags):
 		newtags = list()
 		for tag in tags:
@@ -181,14 +171,16 @@ class YouTubeDl:
 	def download(self, url, file_name):
 		print '[Download] URL : %s' % url
 		print '[Download] File: %s' % file_name
-		os.system("{0} -o \"{1}\" \"{2}\"".format(self._app, file_name, url))
+		os.system("{0} -o \'{1}\' \"{2}\"".format(self._app, file_name, url))
 
 	def get_filename(self, url, filename):
-		status, output = commands.getstatusoutput("{0} --get-filename -o \"{1}\" \"{2}\"".format(self._app, filename, url))
+		cmd = "{0} --get-filename -o \'{1}.%(ext)s\' \"{2}\"".format(self._app, filename, url)
+		status, output = commands.getstatusoutput(cmd)
 		return output
 		
 	def get_format(self, url):
-		status, output = commands.getstatusoutput("{0} --get-format \"{1}\"".format(self._app, url))
+		cmd = "{0} --get-format \"{1}\"".format(self._app, url)
+		status, output = commands.getstatusoutput(cmd)
 		return output
 
 class Pysh:
@@ -233,12 +225,16 @@ def main():
 	shparser = ShazamParser(config)
 	youtube = YouTubeClient()
 	dl = YouTubeDl()
-
 	tags = twitter.get_latest_tags()
 	tags = shparser.parse_titles(tags)
 	tags = youtube.find_media(tags)
 	for tag in tags:
-		dl.download(tag.media.url, pysh.get_path(tag))	
+		tag.filename = dl.get_filename(tag.media.url, pysh.get_path(tag))
+		if not os.path.exists(tag.filename):
+			print '[main   ] Downloading: %s' % tag.filename
+			dl.download(tag.media.url, tag.filename)
+		else:
+			print '[main   ] Skipping file: %s' % tag.filename
 		twitter.remove_tag(tag)
 
 
