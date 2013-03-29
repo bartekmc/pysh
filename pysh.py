@@ -38,6 +38,7 @@ class ShazamTag:
 		self.album = "Unknwon Album"
 		self.genre = "N/A"
 		self.shazam = ShazamInfo()
+		self.soundhound = ShazamInfo()
 		self.media = MediaInfo()
 		self.filename = ""
 
@@ -97,6 +98,7 @@ class TwitterClient:
 			tag = ShazamTag()
 			tag.object = tweet
 			tag.shazam.url = self._get_shazam_url(tweet)
+			tag.soundhound.url = self._get_soundhound_url(tweet)
 			tags.append(tag)
 		return tags
 
@@ -133,6 +135,17 @@ class TwitterClient:
 						print '[Twitter] URL  : %s' % urlstr
 						return urlstr
 		return None
+	
+	def _get_soundhound_url(self, tweet):
+		if 'urls' in tweet.entities:
+			for url in tweet.entities['urls']:
+				if 'expanded_url' in url:
+					urlstr = str(url['expanded_url'])
+					if 'soundhound' in urlstr:
+						print '[Twitter] Tweet: %s' % tweet.text
+						print '[Twitter] URL  : %s' % urlstr
+						return urlstr
+		return None    
 
 class ShazamParser:
 	def __init__(self, config):
@@ -157,11 +170,36 @@ class ShazamParser:
 	def parse_titles(self, tags):
 		newtags = list()
 		for tag in tags:
+			newtags.append(tag)
 			try:
 				self.parse_title(tag)
-				newtags.append(tag)
 				print '[Shazam ] URL  : %s' % tag.shazam.url
 				print '[Shazam ] Title: %s' % tag.shazam.title
+			except:
+				continue
+		return newtags
+
+class SoundHoundParser:
+	def __init__(self, config):
+		self._br = mechanize.Browser()
+
+	def parse_title(self, tag):
+		html = self._br.open(tag.soundhound.url).read()
+		match = re.search('<div class="trackName">(?P<title>.*?)</div>.*?<div class="artistName">.*?<a href=.*?>(?P<author>.*?)</a></div>', html, re.DOTALL)
+		if match!=None:
+			tag.author = match.group('author')
+			tag.title = match.group('title')
+		tag.shazam.title = "%s : %s" % (tag.author, tag.title)
+		return tag
+
+	def parse_titles(self, tags):
+		newtags = list()
+		for tag in tags:
+			newtags.append(tag)
+			try:
+				self.parse_title(tag)
+				print '[SoundHound ] URL  : %s' % tag.soundhound.url
+				print '[SoundHound ] Title: %s' % tag.shazam.title
 			except:
 				continue
 		return newtags
@@ -225,10 +263,12 @@ def main():
 
 	twitter = TwitterClient(config)
 	shparser = ShazamParser(config)
+	sohoparser = SoundHoundParser(config)
 	youtube = YouTubeClient()
 	dl = YouTubeDl()
 	tags = twitter.get_latest_tags()
 	tags = shparser.parse_titles(tags)
+	tags = sohoparser.parse_titles(tags)
 	tags = youtube.find_media(tags)
 	for tag in tags:
 		tag.filename = dl.get_filename(tag.media.url, pysh.get_path(tag))
