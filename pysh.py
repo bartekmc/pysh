@@ -101,6 +101,8 @@ class TwitterClient:
 		return tags
 
 	def remove_tag(self, tag):
+		if not self._remove_tweet:
+			return False
 		try:
 			self._api.destroy_status(tag.object.id)
 			return True
