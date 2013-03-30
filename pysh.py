@@ -262,7 +262,7 @@ def main():
 	logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 
 	config = ConfigParser.RawConfigParser()
-	config.read('pysh.config')
+	config.read(['pysh.config', os.path.expanduser('~/.pysh.config')])
 	
 	pysh = Pysh(config)
 
