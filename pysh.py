@@ -20,7 +20,8 @@ def get_bool(string):
 	else:
 		raise Exception("wrong value \'%s\'".format(string))	
 
-class ShazamInfo:
+# Music Identification Service Info
+class MISInfo:
 	def __init__(self):
 		self.url = ""
 		self.title = ""
@@ -30,18 +31,18 @@ class MediaInfo:
 		self.url = ""
 		self.title = ""
 
-class ShazamTag:
+class ShTag:
 	def __init__(self):
 		self.object = None
 		self.author = "Unknown Author"
 		self.title = "Unknown Title"
 		self.album = "Unknwon Album"
 		self.genre = "N/A"
-		self.shazam = ShazamInfo()
-		self.soundhound = ShazamInfo()
+		self.shazam = MISInfo()
+		self.soundhound = MISInfo()
 		self.media = MediaInfo()
 		self.filename = ""
-
+	
 class YouTubeClient:
 	def __init__(self):
 		self._yt_service = gdata.youtube.service.YouTubeService()
@@ -95,7 +96,7 @@ class TwitterClient:
 		tweets = self._get_latest_tweets()
 		tags = list()
 		for tweet in tweets:
-			tag = ShazamTag()
+			tag = ShTag()
 			tag.object = tweet
 			tag.shazam.url = self._get_shazam_url(tweet)
 			tag.soundhound.url = self._get_soundhound_url(tweet)
@@ -211,10 +212,10 @@ class YouTubeDl:
 	def download(self, url, file_name):
 		print '[Download] URL : %s' % url
 		print '[Download] File: %s' % file_name
-		os.system("{0} -o \'{1}\' \"{2}\"".format(self._app, file_name, url))
+		os.system("{0} -o \"{1}\" \"{2}\"".format(self._app, file_name, url))
 
 	def get_filename(self, url, filename):
-		cmd = "{0} --get-filename -o \'{1}.%(ext)s\' \"{2}\"".format(self._app, filename, url)
+		cmd = "{0} --get-filename -o \"{1}.%(ext)s\" \"{2}\"".format(self._app, filename, url)
 		status, output = commands.getstatusoutput(cmd)
 		return output
 		
@@ -243,15 +244,19 @@ class Pysh:
 	def get_path(self, tag):
 		path = self._name
 		path = path.replace("\"", "")
-		path = path.replace("%a", tag.author)
-		path = path.replace("%t", tag.title)
-		path = path.replace("%A", tag.album)
+		path = path.replace("%a", self._get_subpath(tag.author))
+		path = path.replace("%t", self._get_subpath(tag.title))
+		path = path.replace("%A", self._get_subpath(tag.album))
 		#TODO: rest of wildcards
 		if path[0] == '/':
 			path = path[1:]
 		path = self._dir + '/' + path
 		return path
 
+	def _get_subpath(self, string):
+		string = string.replace("/", "_")
+		string = string.replace("\\", "_")
+		return string
 	
 def main():
 	logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)

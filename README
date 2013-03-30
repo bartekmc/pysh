@@ -1,11 +1,11 @@
-                                        .__     
+		                        .__     
 		    ______ ___.__. _____|  |__  
 		    \____ <   |  |/  ___/  |  \ 
 		    |  |_> >___  |\___ \|   Y  \
 		    |   __// ____/____  >___|  /
 		    |__|   \/         \/     \/ 
 
-pysh - Python script for downloading media (videoclips, music etc) tagged by Shazam
+pysh - Python script for downloading media (videoclips, music etc) tagged by Shazam or SoundHound
 
 Dependencies:
 [1] gdata-python-client (https://code.google.com/p/gdata-python-client)
