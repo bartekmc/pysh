@@ -23,7 +23,8 @@ def get_bool(string):
 # Music Identification Service Info
 class MISInfo:
 	def __init__(self):
-		self.url = ""
+		self.urls = list()
+		self.text = ""
 		self.title = ""
 
 class MediaInfo:
@@ -38,8 +39,7 @@ class ShTag:
 		self.title = "Unknown Title"
 		self.album = "Unknwon Album"
 		self.genre = "N/A"
-		self.shazam = MISInfo()
-		self.soundhound = MISInfo()
+		self.mis = MISInfo()
 		self.media = MediaInfo()
 		self.filename = ""
 	
@@ -51,7 +51,7 @@ class YouTubeClient:
 		newtags = list()
 		for tag in tags:
 			try:
-				feed = self._get_feed(tag.shazam.title)
+				feed = self._get_feed(tag.mis.title)
 				item = self._get_best_entry(feed)
 				self._print_item(item)
 				tag.media.url = item.media.player.url
@@ -98,8 +98,10 @@ class TwitterClient:
 		for tweet in tweets:
 			tag = ShTag()
 			tag.object = tweet
-			tag.shazam.url = self._get_shazam_url(tweet)
-			tag.soundhound.url = self._get_soundhound_url(tweet)
+			urls = self._get_urls(tweet)
+			for url in urls:
+				tag.mis.urls.append(url)
+			tag.mis.text = tweet.text
 			tags.append(tag)
 		return tags
 
@@ -125,28 +127,15 @@ class TwitterClient:
 	def _get_latest_tweets(self):
 		tweets = self._api.user_timeline()
 		return tweets	
-
-	def _get_shazam_url(self, tweet):
-		if 'urls' in tweet.entities:
-			for url in tweet.entities['urls']:
-				if 'expanded_url' in url:
-					urlstr = str(url['expanded_url'])
-					if 'shz' in urlstr or 'shazam' in urlstr:
-						print '[Twitter] Tweet: %s' % tweet.text
-						print '[Twitter] URL  : %s' % urlstr
-						return urlstr
-		return None
 	
-	def _get_soundhound_url(self, tweet):
+	def _get_urls(self, tweet):
+		urls = list()
 		if 'urls' in tweet.entities:
 			for url in tweet.entities['urls']:
 				if 'expanded_url' in url:
 					urlstr = str(url['expanded_url'])
-					if 'soundhound' in urlstr:
-						print '[Twitter] Tweet: %s' % tweet.text
-						print '[Twitter] URL  : %s' % urlstr
-						return urlstr
-		return None    
+					urls.append(urlstr)
+		return urls
 
 class ShazamParser:
 	def __init__(self, config):
@@ -154,44 +143,46 @@ class ShazamParser:
 		self._re = re.compile('^(?P<author>[^:]+) : (?P<title>.*)')
 
 	def parse_title(self, tag):
-		url = tag.shazam.url
-		self._br.open(tag.shazam.url)
-		title = self._br.title()
-		try:
-			m = self._re.match(title)
-			a = m.group('author')
-			t = m.group('title')
-			tag.author = a 
-			tag.title = t
-		except:
-			logging.debug('[Shazam ] %s', sys.exc_info()[1])
-		tag.shazam.title = title
+		for url in tag.mis.urls:
+			if self._read_url(tag, url) == True:
+				return tag
 		return tag
 
 	def parse_titles(self, tags):
 		newtags = list()
 		for tag in tags:
-			newtags.append(tag)
-			try:
-				self.parse_title(tag)
-				print '[Shazam ] URL  : %s' % tag.shazam.url
-				print '[Shazam ] Title: %s' % tag.shazam.title
-			except:
-				continue
+			if self.parse_title(tag) != None:
+				newtags.append(tag)
+				print '[Shazam ] URL  : %s' % tag.mis.urls
+				print '[Shazam ] Title: %s' % tag.mis.title
 		return newtags
+
+	def _read_url(self, tag, url):
+		logging.debug('[Shazam ] %s', url)
+		if 'shz' in url or 'shazam' in url:
+			try:
+				self._br.open(url)
+				title = self._br.title()
+				match = self._re.match(title)
+				if match != None:
+					tag.author = match.group('author')
+					tag.title = match.group('title')
+					tag.mis.title = "%s - %s" % (tag.author, tag.title)
+					return True
+			except:
+				logging.debug('[Shazam ] %s', sys.exc_info()[1])
+				return False
+		return False
 
 class SoundHoundParser:
 	def __init__(self, config):
 		self._br = mechanize.Browser()
 
 	def parse_title(self, tag):
-		html = self._br.open(tag.soundhound.url).read()
-		match = re.search('<div class="trackName">(?P<title>.*?)</div>.*?<div class="artistName">.*?<a href=.*?>(?P<author>.*?)</a></div>', html, re.DOTALL)
-		if match!=None:
-			tag.author = match.group('author')
-			tag.title = match.group('title')
-		tag.shazam.title = "%s : %s" % (tag.author, tag.title)
-		return tag
+		for url in tag.mis.urls:
+			if self._read_url(tag, url) == True:
+				return tag
+		return None
 
 	def parse_titles(self, tags):
 		newtags = list()
@@ -199,11 +190,27 @@ class SoundHoundParser:
 			newtags.append(tag)
 			try:
 				self.parse_title(tag)
-				print '[SoundHound ] URL  : %s' % tag.soundhound.url
-				print '[SoundHound ] Title: %s' % tag.shazam.title
+				print '[SoundHound ] URL  : %s' % tag.mis.urls
+				print '[SoundHound ] Title: %s' % tag.mis.title
 			except:
 				continue
 		return newtags
+
+	def _read_url(self, tag, url):
+		logging.debug('[SoundHound ] %s', url)
+		if 'soundhound' in url:
+			try:
+				html = self._br.open(url).read()
+				match = re.search('<div class="trackName\">(?P<title>.*?)</div>.*?<div class="artistName">.*?<a href=.*?>(?P<author>.*?)</a></div>', 
+						html,re.DOTALL)
+				if match!=None:
+					tag.author = match.group('author')
+					tag.title = match.group('title')
+					tag.mis.title = "%s - %s" % (tag.author, tag.title)
+					return True
+			except:
+				return False
+		return False
 
 class YouTubeDl:
 	def __init__(self):
@@ -271,9 +278,14 @@ def main():
 	sohoparser = SoundHoundParser(config)
 	youtube = YouTubeClient()
 	dl = YouTubeDl()
+	
+	logging.debug('[main] getting latest tags from twitter')
 	tags = twitter.get_latest_tags()
+	logging.debug('[main] parsing titles by shazam parser')
 	tags = shparser.parse_titles(tags)
+	logging.debug('[main] parsing titles by SoundHound parser')
 	tags = sohoparser.parse_titles(tags)
+	logging.debug('[main] searching media on youtube')
 	tags = youtube.find_media(tags)
 	for tag in tags:
 		tag.filename = dl.get_filename(tag.media.url, pysh.get_path(tag))
@@ -283,7 +295,6 @@ def main():
 		else:
 			print '[main   ] Skipping file: %s' % tag.filename
 		twitter.remove_tag(tag)
-
 
 if __name__ == '__main__':
 	try:
