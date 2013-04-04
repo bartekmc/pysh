@@ -181,35 +181,35 @@ class SoundHoundParser:
 	def parse_title(self, tag):
 		for url in tag.mis.urls:
 			if self._read_url(tag, url) == True:
-				return tag
-		return None
+				return
 
 	def parse_titles(self, tags):
-		newtags = list()
 		for tag in tags:
-			newtags.append(tag)
-			try:
-				self.parse_title(tag)
-				print '[SoundHound ] URL  : %s' % tag.mis.urls
-				print '[SoundHound ] Title: %s' % tag.mis.title
-			except:
-				continue
-		return newtags
+			self.parse_title(tag)
+			logging.debug('[SoundHound ] URLs  : %s' % tag.mis.urls)
+			logging.debug('[SoundHound ] Title: %s' % tag.mis.title)
+		return tags
 
 	def _read_url(self, tag, url):
-		logging.debug('[SoundHound ] %s', url)
 		if 'soundhound' in url:
 			try:
 				html = self._br.open(url).read()
-				match = re.search('<div class="trackName\">(?P<title>.*?)</div>.*?<div class="artistName">.*?<a href=.*?>(?P<author>.*?)</a></div>', 
-						html,re.DOTALL)
-				if match!=None:
-					tag.author = match.group('author')
-					tag.title = match.group('title')
-					tag.mis.title = "%s - %s" % (tag.author, tag.title)
-					return True
 			except:
+				logging.debug('[SoundHound ] %s', sys.exc_info()[1])
 				return False
+
+			match = re.search('<div class="trackName">(?P<title>.*?)</div>.*?'
+						'<div class="artistName">.*?'
+							'<a href=.*?>(?P<author>.*?)</a>'
+						'</div>', html, re.DOTALL)
+			if match!=None:
+				tag.author = match.group('author')
+				tag.title = match.group('title')
+				tag.mis.title = "%s - %s" % (tag.author, tag.title)
+				return True
+			else:
+				logging.debug('[SoundHound ] Parsing author and title failed.%')
+
 		return False
 
 class YouTubeDl:
