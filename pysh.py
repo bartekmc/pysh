@@ -11,6 +11,7 @@ import gdata.youtube.service
 import mechanize
 import ConfigParser
 import logging
+import getopt
 
 def get_bool(string):
 	if string.lower() == 'yes' or string.lower() == 'true':
@@ -265,11 +266,38 @@ class Pysh:
 		string = string.replace("\\", "_")
 		return string
 	
-def main():
+def main(argv=[]):
+
+	try:
+		optlist, args = getopt.gnu_getopt(argv[1:], '', ['config=', 'search='])
+	except getopt.GetoptError as err:
+		print str(err)	
+	
+	tags = []
+	option_config = None
+	for o, a in optlist:
+		if o == '--search':
+			match = re.match('^(?P<author>[^:]+) : (?P<title>.*)', a)
+			if match==None:
+				print 'Argument --search parsing failed.\nTry: --search="author : title"'
+				sys.exit(1)
+			tag = ShTag()
+			tag.author = match.group('author')
+			tag.title = match.group('title') 
+			tag.mis.title = a
+			tags.append(tag)
+
+		if o =='--config':
+			option_config=a
+			
+
 	logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 
 	config = ConfigParser.RawConfigParser()
-	config.read([os.path.expanduser('~/.pysh.config'), 'pysh.config'])
+	if not option_config == None:
+		config.read([option_config])
+	else:
+		config.read([os.path.expanduser('~/.pysh.config'), 'pysh.config'])
 	
 	pysh = Pysh(config)
 
@@ -280,7 +308,7 @@ def main():
 	dl = YouTubeDl()
 	
 	logging.debug('[main] getting latest tags from twitter')
-	tags = twitter.get_latest_tags()
+	tags.extend(twitter.get_latest_tags())
 	logging.debug('[main] parsing titles by shazam parser')
 	tags = shparser.parse_titles(tags)
 	logging.debug('[main] parsing titles by SoundHound parser')
@@ -298,7 +326,7 @@ def main():
 
 if __name__ == '__main__':
 	try:
-		main()
+		main(sys.argv)
 	except:
 		print "error: ", sys.exc_info()[1]
 
